@@ -7,20 +7,69 @@
 #	AARDHYN LAVENDER
 #
 
-# reads data stored in a remote CSV file
-function ReadRemote() {
-	local url=$1
-	
-	# for now... echo the url
-	echo $url
+# binary prompt of specifed message
+function Prompt() {
+	echo $1
+	while [ 1 ]
+	do
+		# prompt user
+		printf '[yes/no]: '
+		read input
+
+		# loop until detect valid input
+		if [[ $input == 'yes' ]];
+		then
+			return 0 # 0 for no error -- intended to be used in piping...
+		elif [[ $input == 'no' ]];
+		then
+			return 1
+		fi
+	done
+}
+
+# prompts the user for input
+function PromptInput() {
+	while [ 1 ]
+	do
+		printf $1
+	done
 }
 
 # reads data stored in a local CSV file
-function ReadLocal() {
-	local filepath=$1
+function ReadCSV() {
+	local file=$1	
+	local IFS=';'
+	local linenumber=0
 
-	# for now... print the contents of the file
-	cat $filepath
+	while read email dob groups folder
+	do
+		if [[ $linenumber -ne 0 ]];
+		then
+			echo email:	$email
+			echo dob:	$dob	
+			echo groups:	$groups
+			echo folder:	$folder
+		fi
+		((++linenumber))
+	done < $file
+	
+	# ask if the file should be deleted 	
+	Prompt "Do you want to delete the file?" && rm $file
+}
+
+# reads data stored in a remote CSV file
+function ReadRemote() {
+	local url=$1
+	# get data from url
+	wget $url -O fetchedData 2> /dev/null
+	local err=$?
+
+	if [[ $err -ne 0 ]];
+	then # wget encountered an error
+		echo Err: File could not be downloaded
+	else # read data
+		ReadCSV fetchedData 
+	fi
 }
 
 function ValidateURL() {
@@ -52,7 +101,7 @@ function ValidateArgInput() {
 		ValidateURL $2
 	elif [[ -f $1 ]];
 	then # user has specifed a local file to read
-		ReadLocal $1
+		ReadCSV $1
 	elif [[ -d $1 ]];
 	then # user has specified a directory
 		echo ERR: local input must point to a file!
