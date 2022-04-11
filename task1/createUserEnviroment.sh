@@ -40,19 +40,32 @@ function ReadCSV() {
 	local file=$1	
 	local IFS=';'
 	local linenumber=0
-
-	while read email dob groups folder
-	do
-		if [[ $linenumber -ne 0 ]];
-		then
-			echo email:	$email
-			echo dob:	$dob	
-			echo groups:	$groups
-			echo folder:	$folder
-		fi
-		((++linenumber))
-	done < $file
 	
+	# validate data conforms to schema
+	local schema='e-mail;birth date;groups;sharedFolder'
+	local header=$(cat $file | head -n 1)
+	if [[ "$header" == "$schema" ]];
+	then # read and parse data
+		echo File conforms to schema... parsing.
+		while read email dob groups folder
+		do
+			if [[ $linenumber -ne 0 ]];
+			then
+				echo "email:	$email"
+				echo "dob:	$dob"
+				echo "groups:	$groups"
+				echo "folder:	$folder"
+				echo
+			fi
+			((++linenumber))
+		done < $file
+	else # the file is either !csv or data is malformed
+		echo ERR: File did not match required schema!	
+		echo "FOUND:	$header"
+		echo "EXPECT:	$schema"
+		echo 
+	fi
+			
 	# ask if the file should be deleted 	
 	Prompt "Do you want to delete the file?" && rm $file
 }
@@ -66,9 +79,15 @@ function ReadRemote() {
 
 	if [[ $err -ne 0 ]];
 	then # wget encountered an error
-		echo Err: File could not be downloaded
+		echo ERR: File could not be downloaded!
 	else # read data
-		ReadCSV fetchedData 
+		if [[ -f fetchedData ]];
+		then # attempt to read data
+			echo success! Attempting to parse
+			ReadCSV fetchedData 
+		else
+			echo ERR: no file was returned!
+		fi
 	fi
 }
 
@@ -91,6 +110,7 @@ function ValidateURL() {
 		fi
 	else 
 		echo ERR: no url was specified!
+		echo "EXPECT:	<comand> -r <url>"
 	fi
 }
 
@@ -99,16 +119,18 @@ function ValidateArgInput() {
 	if [[ $1 == '-r' ]];
 	then # user has specified remote file input
 		ValidateURL $2
-	elif [[ -f $1 ]];
-	then # user has specifed a local file to read
-		ReadCSV $1
-	elif [[ -d $1 ]];
-	then # user has specified a directory
-		echo ERR: local input must point to a file!
-	else # who knows whats been inputed!
-		echo ERR: invalid input!
-		echo 'use:	<command> <filepath>'
-		echo 'use:	<command> -r <url>'
+	else
+		if [[ -f $1 ]];
+		then # user has specifed a local file to read
+			ReadCSV $1
+		elif [[ -d $1 ]];
+		then # user has specified a directory
+			echo ERR: Input must point to a file!
+			echo "EXPECT:	<commaned <-f filepath>"
+		else
+			echo ERR: A file must be specified!
+			echo "EXPECT:	<command> <filepath>"
+		fi
 	fi
 }
 
