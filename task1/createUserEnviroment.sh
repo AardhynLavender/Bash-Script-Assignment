@@ -27,14 +27,6 @@ function Prompt() {
 	done
 }
 
-# prompts the user for input
-function PromptInput() {
-	while [ 1 ]
-	do
-		printf $1
-	done
-}
-
 # reads data stored in a local CSV file
 function ReadCSV() {
 	local file=$1	
@@ -59,15 +51,18 @@ function ReadCSV() {
 			fi
 			((++linenumber))
 		done < $file
+
+		# ask if the file should be deleted 	
+		Prompt "Parse Complete... do you want to delete the file?" && rm $file
 	else # the file is either !csv or data is malformed
 		echo ERR: File did not match required schema!	
 		echo "FOUND:	$header"
 		echo "EXPECT:	$schema"
-		echo 
+
+		# the user may wish to keep the invalid file...
+		Prompt "Do you want to delete the file?" && rm $file
 	fi
 			
-	# ask if the file should be deleted 	
-	Prompt "Do you want to delete the file?" && rm $file
 }
 
 # reads data stored in a remote CSV file
@@ -114,36 +109,53 @@ function ValidateURL() {
 	fi
 }
 
-# Checks the script input is valid
-function ValidateArgInput() {
-	if [[ $1 == '-r' ]];
-	then # user has specified remote file input
-		ValidateURL $2
+function ValidateFilepath() {
+	if [[ -f $1 ]];
+	then # user has specifed a local file to read
+		ReadCSV $1
+	elif [[ -d $1 ]];
+	then # user has specified a directory
+		echo ERR: Input must point to a file!
+		echo "EXPECT:	<commaned <-f filepath>"
 	else
-		if [[ -f $1 ]];
-		then # user has specifed a local file to read
-			ReadCSV $1
-		elif [[ -d $1 ]];
-		then # user has specified a directory
-			echo ERR: Input must point to a file!
-			echo "EXPECT:	<commaned <-f filepath>"
-		else
-			echo ERR: A file must be specified!
-			echo "EXPECT:	<command> <filepath>"
-		fi
+		echo ERR: A file must be specified!
+		echo "EXPECT:	<command> <filepath>"
 	fi
 }
 
+# determines the command line input of the command
+function DetermineInput() {
+	if [[ $1 == '-r' ]];
+	then # user has specified remote file input
+		ValidateURL $2
+	else # assume user wants to use a local file
+		ValidateFilpath $1
+	fi
+}
+
+# prompts the user for script paramaters
 function AskForInput() {
-	# for now.. tell the user it will ask for input
-	echo asking for input...
+	Prompt "Do you wish to parse a local file?"
+	if [ $? -eq 1 ];
+	then
+		echo parsing remote
+		printf "Enter the url: "
+		read url
+		ValidateURL $url
+	else
+		echo parsing local
+		printf "Enter the filepath: "
+		read filepath
+		ValidateFilepath $filepath		
+	fi
+
 }
 
 if [ "$#" -eq 0 ];
 then
 	AskForInput
 else
-	ValidateArgInput $1 $2
+	DetermineInput $1 $2
 fi
 exit 0
 
