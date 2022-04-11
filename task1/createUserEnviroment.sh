@@ -7,7 +7,7 @@
 #	AARDHYN LAVENDER
 #
 
-# binary prompt of specifed message
+# Binary prompt for specifed message
 function Prompt() {
 	echo $1
 	while [ 1 ]
@@ -27,7 +27,7 @@ function Prompt() {
 	done
 }
 
-# reads data stored in a local CSV file
+# Read data in a local CSV file
 function ReadCSV() {
 	local file=$1	
 	local IFS=';'
@@ -65,7 +65,7 @@ function ReadCSV() {
 			
 }
 
-# reads data stored in a remote CSV file
+# Attempt to fetch remote data
 function ReadRemote() {
 	local url=$1
 	# get data from url
@@ -86,6 +86,7 @@ function ReadRemote() {
 	fi
 }
 
+# Validate url format
 function ValidateURL() {
 	local url=$1
 	
@@ -109,6 +110,7 @@ function ValidateURL() {
 	fi
 }
 
+# Valiate input points to a valid file
 function ValidateFilepath() {
 	if [[ -f $1 ]];
 	then # user has specifed a local file to read
@@ -117,23 +119,23 @@ function ValidateFilepath() {
 	then # user has specified a directory
 		echo ERR: Input must point to a file!
 		echo "EXPECT:	<commaned <-f filepath>"
-	else
+	else # who knows whats been specified...
 		echo ERR: A file must be specified!
 		echo "EXPECT:	<command> <filepath>"
 	fi
 }
 
-# determines the command line input of the command
+# Determine function based on paramaters 
 function DetermineInput() {
 	if [[ $1 == '-r' ]];
 	then # user has specified remote file input
 		ValidateURL $2
 	else # assume user wants to use a local file
-		ValidateFilpath $1
+		ValidateFilepath $1
 	fi
 }
 
-# prompts the user for script paramaters
+# Prompts the user for script paramaters
 function AskForInput() {
 	Prompt "Do you wish to parse a local file?"
 	if [ $? -eq 1 ];
@@ -151,11 +153,15 @@ function AskForInput() {
 
 }
 
-if [ "$#" -eq 0 ];
-then
-	AskForInput
-else
-	DetermineInput $1 $2
-fi
-exit 0
+function Main() {
+	if [ "$#" -eq 0 ];
+	then
+		AskForInput
+	else
+		DetermineInput $1 $2
+	fi
+	exit 0
+}
+
+Main $1 $2
 
