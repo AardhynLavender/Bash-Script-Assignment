@@ -42,6 +42,14 @@ function CreateUsername() {
 	return 0
 }
 
+function CreatePassword() {
+	dob=$1
+	if [[ ! $dob ]] ; then return 1; fi
+	password=$(date -d $dob +%m%Y)
+	echo $password
+}
+	
+
 # Read data in a local CSV file
 function ReadCSV() {
 	local file=$1	
@@ -56,29 +64,44 @@ function ReadCSV() {
 		echo File conforms to schema... parsing.
 		while read email dob groups folder
 		do
-			if [[ $linenumber -ne 0 ]];
+			((++linenumber))
+			if [[ $linenumber -ne 1 ]];
 			then # parse line
 				# log details -- for development purposes
 				echo "email:	$email"
 				echo "dob:	$dob"
 				echo "groups:	$groups"
 				echo "folder:	$folder"
-					
+				echo
 				# create username from email				
 				username=$(CreateUsername $email)	
 				if [[ $username ]];
 				then # proceed with user creation...
 					echo Create username success!
-					echo Created:	$username ; echo
+					echo Created:	$username 
+					
+				 	password=$(CreatePassword $dob)
+					if [[ $password ]];
+					then # proceed with user creation
+						echo Create password success!
+						echo Created:	$password
+						
+												
 
-
+					else # log err then continue
+						echo ERR: failed to create password from dob!
+						echo TRACE: 	Check ln$linenumber.
+						echo SKIPPING; echo
+						continue;
+					fi
 				else # log err then continue
 					echo ERR: failed to create username!
+					echo TRACE: 	Check ln$linenumber.
 					echo SKIPPING ; echo
 					continue
 				fi
 			fi
-			((++linenumber))
+			echo
 		done < $file
 
 		# ask if the file should be deleted 	
