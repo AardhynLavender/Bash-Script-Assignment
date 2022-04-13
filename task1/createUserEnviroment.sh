@@ -26,6 +26,21 @@ function Prompt() {
 		fi
 	done
 }
+   
+# create a username from an email address
+function CreateUsername() {
+	email=$1
+	if [[ ! $email ]]; then return 1; fi
+	
+	# extract first and last name		
+	fullname=$(echo $email | cut -d '@' -f1)
+	first=$(echo $fullname | cut -d '.' -f1)
+	last=$(echo $fullname | cut -d '.' -f2)
+	
+	# create username with the "<lastname[0]><firstname>" convention
+	echo "${last:0:1}$first"
+	return 0
+}
 
 # Read data in a local CSV file
 function ReadCSV() {
@@ -42,12 +57,26 @@ function ReadCSV() {
 		while read email dob groups folder
 		do
 			if [[ $linenumber -ne 0 ]];
-			then
+			then # parse line
+				# log details -- for development purposes
 				echo "email:	$email"
 				echo "dob:	$dob"
 				echo "groups:	$groups"
 				echo "folder:	$folder"
-				echo
+					
+				# create username from email				
+				username=$(CreateUsername $email)	
+				if [[ $username ]];
+				then # proceed with user creation...
+					echo Create username success!
+					echo Created:	$username ; echo
+
+
+				else # log err then continue
+					echo ERR: failed to create username!
+					echo SKIPPING ; echo
+					continue
+				fi
 			fi
 			((++linenumber))
 		done < $file
