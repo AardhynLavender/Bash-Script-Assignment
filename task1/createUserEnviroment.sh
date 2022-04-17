@@ -26,16 +26,16 @@ function Prompt() {
 		fi
 	done
 }
-   
+  
 # create a username from an email address
 function CreateUsername() {
-	email=$1
+	local email=$1
 	if [[ ! $email ]]; then return 1; fi
 	
 	# extract first and last name		
-	fullname=$(echo $email | cut -d '@' -f1)
-	first=$(echo $fullname | cut -d '.' -f1)
-	last=$(echo $fullname | cut -d '.' -f2)
+	local fullname=$(echo $email | cut -d '@' -f1)
+	local first=$(echo $fullname | cut -d '.' -f1)
+	local last=$(echo $fullname | cut -d '.' -f2)
 	
 	# create username with the "<lastname[0]><firstname>" convention
 	echo "${last:0:1}$first"
@@ -43,15 +43,15 @@ function CreateUsername() {
 }
 
 function CreatePassword() {
-	dob=$1
+	local dob=$1
 	if [[ ! $dob ]] ; then return 1; fi
-	password=$(date -d $dob +%m%Y)
+	local password=$(date -d $dob +%m%Y)
 	echo $password
 }
 	
 
 # Read data in a local CSV file
-function ReadCSV() {
+function ReadCSV {
 	local file=$1	
 	local IFS=';'
 	local linenumber=0
@@ -62,6 +62,10 @@ function ReadCSV() {
 	if [[ "$header" == "$schema" ]];
 	then # read and parse data
 		echo File conforms to schema... parsing.
+		
+		# dev - log users created from this script
+		rm createdusers
+
 		while read email dob groups folder
 		do
 			((++linenumber))
@@ -73,21 +77,67 @@ function ReadCSV() {
 				echo "groups:	$groups"
 				echo "folder:	$folder"
 				echo
+
 				# create username from email				
-				username=$(CreateUsername $email)	
+				local username=$(CreateUsername $email)	
 				if [[ $username ]];
 				then # proceed with user creation...
 					echo Create username success!
 					echo Created:	$username 
 					
-				 	password=$(CreatePassword $dob)
+				 	local password=$(CreatePassword $dob)
 					if [[ $password ]];
 					then # proceed with user creation
 						echo Create password success!
 						echo Created:	$password
 						
-												
+						# encrypt password
+						local encrypted=$(openssl passwd -crypt $password)
 
+						# create user
+						sudo useradd -md "/home/$username" -s /bin/bash -p $encrypted $username 2>/dev/null
+						local useraddCode=$?
+						echo $username >> createdusers # log created user
+
+						if [ $useraddCode -eq 0 ];
+						then # everything worked!
+							echo User creation successful.
+
+							local IFS=',' # reset IFS
+							for group in ${groups//, /}	
+							do # loop groups
+								if [ $group == 'sudo' ]; 
+								then # add to sudo, and create alias
+									echo 'is sudo'
+								elif [[ $(grep "^$group:" /etc/group) ]];
+								then # add to group
+									echo Found $group
+									# 
+								else # create then add to group
+									echo Did not find $group, creating
+								fi
+							done
+							local IFS=';' # return for base loop IFS
+
+							if [ $folder ];
+							then # check if existing
+								echo Has shared folder access.
+								if [ -f $folder ];
+								then # exists, grant access
+									echo exists
+								else # create folder, grant access
+									echo !exists, creating
+								fi
+							fi
+						elif [ $useraddCode -eq 9 ];
+						then # user already registered with $username
+							echo ERR: User Creation Failed! A user is already registered with a username of $username
+						else # somthing bad happened, provide the err code 
+							echo ERR: User creation failed!
+							echo TRACE: command exited with code $useraddCode
+						fi
+						echo ; echo
+						
 					else # log err then continue
 						echo ERR: failed to create password from dob!
 						echo TRACE: 	Check ln$linenumber.
