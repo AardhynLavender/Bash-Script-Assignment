@@ -26,45 +26,58 @@ function Prompt() {
 		fi
 	done
 }
-  
+
 # create a username from an email address
 function CreateUsername() {
 	local email=$1
 	if [[ ! $email ]]; then return 1; fi
-	
-	# extract first and last name		
+
+	# extract first and last name
 	local fullname=$(echo $email | cut -d '@' -f1)
 	local first=$(echo $fullname | cut -d '.' -f1)
 	local last=$(echo $fullname | cut -d '.' -f2)
-	
+
 	# create username with the "<lastname[0]><firstname>" convention
 	echo "${last:0:1}$first"
 	return 0
 }
 
+# Creates a password from a date
 function CreatePassword() {
 	local dob=$1
 	if [[ ! $dob ]] ; then return 1; fi
 	local password=$(date -d $dob +%m%Y)
 	echo $password
 }
-	
+
+# Ask for users password
+function Authenticate() {
+	echo ; echo Script may require Sudo Permissions
+    sudo ls > /dev/null # ...force sudo password
+	return $?
+}
 
 # Read data in a local CSV file
 function ReadCSV {
-	local file=$1	
+	local file=$1
 	local IFS=';'
 	local linenumber=0
-	
+
 	# validate data conforms to schema
 	local schema='e-mail;birth date;groups;sharedFolder'
 	local header=$(cat $file | head -n 1)
 	if [[ "$header" == "$schema" ]];
 	then # read and parse data
 		echo File conforms to schema... parsing.
-		
+
 		# dev - log users created from this script
 		rm createdusers
+
+		if [ Authenticate -nq 0 ];
+        then
+            echo "ERR: Authentication Failed"
+            return 1;
+        fi
 
 		while read email dob groups folder
 		do
@@ -78,19 +91,19 @@ function ReadCSV {
 				echo "folder:	$folder"
 				echo
 
-				# create username from email				
-				local username=$(CreateUsername $email)	
+				# create username from email
+				local username=$(CreateUsername $email)
 				if [[ $username ]];
 				then # proceed with user creation...
 					echo Create username success!
-					echo Created:	$username 
-					
+					echo Created:	$username
+
 				 	local password=$(CreatePassword $dob)
 					if [[ $password ]];
 					then # proceed with user creation
 						echo Create password success!
 						echo Created:	$password
-						
+
 						# encrypt password
 						local encrypted=$(openssl passwd -crypt $password)
 
@@ -104,40 +117,61 @@ function ReadCSV {
 							echo User creation successful.
 
 							local IFS=',' # reset IFS
-							for group in ${groups//, /}	
+							for group in ${groups//, /}
 							do # loop groups
-								if [ $group == 'sudo' ]; 
+								if [ $group == 'sudo' ];
 								then # add to sudo, and create alias
 									echo 'is sudo'
+									sudo usermod -a -G sudo $username
+									sudo bash -c "echo alias myls=\'ls -lisa /home/$username\' >> /home/$username/.bash_aliases"
 								elif [[ $(grep "^$group:" /etc/group) ]];
 								then # add to group
 									echo Found $group
-									# 
+									sudo usermod -a -G $group $username
 								else # create then add to group
 									echo Did not find $group, creating
+									sudo groupadd $group
+									sudo usermod -a -G $group $username
 								fi
 							done
 							local IFS=';' # return for base loop IFS
 
+                            # does user require access to shared folder
 							if [ $folder ];
-							then # check if existing
-								echo Has shared folder access.
-								if [ -f $folder ];
-								then # exists, grant access
-									echo exists
-								else # create folder, grant access
-									echo !exists, creating
-								fi
+							then # shared folder has been specified
+								echo Has shared folder access
+								local access="${folder:1}Access"
+
+								if [ ! -d $folder ];
+								then # create shared folder
+									echo !exists
+                                    # create shared folder
+									sudo mkdir $folder
+                                    sudo chmod 770 $folder
+
+                                    # does access already exist
+                                    if [[ ! $(grep "^$access:" /etc/group) ]];
+                                    then # create
+                                        sudo groupadd $access
+                                    fi
+
+                                    # assign ownership
+                                    sudo chown root:$access $folder
+                                fi
+
+                                # grant access and provided link
+                                sudo usermod -a -G $access $username
+                                sudo ln -s /$folder /home/$username/shared
 							fi
 						elif [ $useraddCode -eq 9 ];
 						then # user already registered with $username
 							echo ERR: User Creation Failed! A user is already registered with a username of $username
-						else # somthing bad happened, provide the err code 
+						else # somthing bad happened, provide the err code
 							echo ERR: User creation failed!
 							echo TRACE: command exited with code $useraddCode
 						fi
 						echo ; echo
-						
+
 					else # log err then continue
 						echo ERR: failed to create password from dob!
 						echo TRACE: 	Check ln$linenumber.
@@ -154,17 +188,17 @@ function ReadCSV {
 			echo
 		done < $file
 
-		# ask if the file should be deleted 	
+		# ask if the file should be deleted
 		Prompt "Parse Complete... do you want to delete the file?" && rm $file
 	else # the file is either !csv or data is malformed
-		echo ERR: File did not match required schema!	
+		echo ERR: File did not match required schema!
 		echo "FOUND:	$header"
 		echo "EXPECT:	$schema"
 
 		# the user may wish to keep the invalid file...
 		Prompt "Do you want to delete the file?" && rm $file
 	fi
-			
+
 }
 
 # Attempt to fetch remote data
@@ -181,7 +215,7 @@ function ReadRemote() {
 		if [[ -f fetchedData ]];
 		then # attempt to read data
 			echo success! Attempting to parse
-			ReadCSV fetchedData 
+			ReadCSV fetchedData
 		else
 			echo ERR: no file was returned!
 		fi
@@ -191,7 +225,7 @@ function ReadRemote() {
 # Validate url format
 function ValidateURL() {
 	local url=$1
-	
+
 	# check there is a url to validate
 	if [[ $url ]];
 	then # ensure url is not malformed
@@ -206,7 +240,7 @@ function ValidateURL() {
 			echo 'use:	http://<path>'
 			echo 'use:	https://<path>'
 		fi
-	else 
+	else
 		echo ERR: no url was specified!
 		echo "EXPECT:	<comand> -r <url>"
 	fi
@@ -227,7 +261,7 @@ function ValidateFilepath() {
 	fi
 }
 
-# Determine function based on paramaters 
+# Determine function based on paramaters
 function DetermineInput() {
 	if [[ $1 == '-r' ]];
 	then # user has specified remote file input
@@ -250,11 +284,12 @@ function AskForInput() {
 		echo parsing local
 		printf "Enter the filepath: "
 		read filepath
-		ValidateFilepath $filepath		
+		ValidateFilepath $filepath
 	fi
 
 }
 
+# application entry point
 function Main() {
 	if [ "$#" -eq 0 ];
 	then

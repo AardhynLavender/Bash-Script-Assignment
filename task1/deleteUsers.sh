@@ -1,6 +1,6 @@
 #!/bin/bash
 
-file=$1
+file=createdusers
 if [[ -f $file ]];
 then
 	echo deleting users. ; echo
@@ -20,3 +20,12 @@ then
 else
 	echo failed to find file!
 fi
+
+# removed shared directories
+if [ -d /visitorData ];
+then sudo rm -r /visitorData
+fi
+if [ -d /staffData ];
+then sudo rm -r /staffData
+fi
+
