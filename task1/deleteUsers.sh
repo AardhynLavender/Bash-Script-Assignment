@@ -9,8 +9,7 @@ then
 		echo deleting: $user.
 		if [[ $(id -u $user 2> /dev/null) ]];
 		then
-			sudo userdel $user
-			sudo rm -r "/home/$user"
+			sudo userdel -rf $user
 			echo " 	deletion successfull."
 		else
 			echo "	user does not exist!"

@@ -73,7 +73,8 @@ function ReadCSV {
 		# dev - log users created from this script
 		rm createdusers
 
-		if [ Authenticate -nq 0 ];
+        Authenticate
+		if [ $? -ne 0 ];
         then
             echo "ERR: Authentication Failed"
             return 1;
