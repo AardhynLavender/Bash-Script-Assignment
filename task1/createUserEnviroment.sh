@@ -7,6 +7,22 @@
 #	AARDHYN LAVENDER
 #
 
+function Log() {
+    local out="logs/$timestamp.log"
+    printf "[$1]\t$2\n" >> $out
+    if [ -n ${3+x} ];
+    then
+        printf "   TRACE:\t$3\n" >> $out
+    fi
+    if [ -n ${4+x} ];
+    then
+        printf "   EXPECT:\t$4\n" >> $out
+    fi
+
+    # create a copy of the latest log
+    cat $out > logs/latest.log
+}
+
 function Repeat() {
     for (( i=0; i<=$1;i++ ))
     do
@@ -385,6 +401,8 @@ function AskForInput() {
 
 # application entry point
 function Main() {
+    timestamp=$(date +%Y-%m-%d@%H:%M:%S) # set timestamp for log file
+    Log "err" "asdf"
 	if [ "$#" -eq 0 ];
 	then
 		AskForInput
@@ -393,6 +411,5 @@ function Main() {
 	fi
 	exit 0
 }
-
 Main $1 $2
 

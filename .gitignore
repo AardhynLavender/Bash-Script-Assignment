@@ -1,2 +1,3 @@
-# ignore data returned from wget in task one
+createdusers
 fetchedData
+*/logs
