@@ -7,6 +7,26 @@
 #	AARDHYN LAVENDER
 #
 
+function Repeat() {
+    for (( i=0; i<=$1;i++ ))
+    do
+        printf $2
+    done
+}
+
+# prints a string with right padding
+function PadRight() {
+    local strLen=${#2}
+    local str=$2
+    local charsAlloc=$1
+    if [ $strLen -le $charsAlloc ];
+    then
+        local padding=$[charsAlloc - strLen]
+        printf $str 2> /dev/null
+        printf "%*s" $padding
+    fi
+}
+
 # Binary prompt for specifed message
 function Prompt() {
 	echo $1
@@ -68,7 +88,7 @@ function ReadCSV {
 	local header=$(cat $file | head -n 1)
 	if [[ "$header" == "$schema" ]];
 	then # read and parse data
-		echo File conforms to schema... parsing.
+		echo 'File conforms to schema -> parsing.'
 
 		# dev - log users created from this script
 		rm createdusers
@@ -80,30 +100,39 @@ function ReadCSV {
             return 1;
         fi
 
+        # print column headings
+        echo
+        PadRight 20 'USERNAME'
+        PadRight 10 'PASSWORD'
+        PadRight 20 'HOME DIRECTORY'
+        PadRight 10 'ALIAS'
+        PadRight 30 ' GROUPS'
+        PadRight 30 'SHARED DIRECTORY'
+        PadRight 20 'DIRECTORY LINK'
+        echo
+        Repeat 140 "=" ; echo
+
 		while read email dob groups folder
 		do
 			((++linenumber))
 			if [[ $linenumber -ne 1 ]];
 			then # parse line
-				# log details -- for development purposes
-				echo "email:	$email"
-				echo "dob:	$dob"
-				echo "groups:	$groups"
-				echo "folder:	$folder"
-				echo
-
 				# create username from email
 				local username=$(CreateUsername $email)
 				if [[ $username ]];
 				then # proceed with user creation...
-					echo Create username success!
-					echo Created:	$username
+					#echo Create username success!
+					#echo Created:	$username
+
+                    PadRight 20 $username
 
 				 	local password=$(CreatePassword $dob)
 					if [[ $password ]];
 					then # proceed with user creation
-						echo Create password success!
-						echo Created:	$password
+						#echo Create password success!
+						#echo Created:	$password
+
+                        PadRight 10 "success"
 
 						# encrypt password
 						local encrypted=$(openssl passwd -crypt $password)
@@ -115,37 +144,70 @@ function ReadCSV {
 
 						if [ $useraddCode -eq 0 ];
 						then # everything worked!
-							echo User creation successful.
+							#echo User creation successful
+
+                            PadRight 20 "/home/$username"
+
+                            local addedGroups=""
+                            local isSudo=0;
 
 							local IFS=',' # reset IFS
 							for group in ${groups//, /}
 							do # loop groups
 								if [ $group == 'sudo' ];
 								then # add to sudo, and create alias
-									echo 'is sudo'
+									#echo 'is sudo'
+                                    isSudo=1;
 									sudo usermod -a -G sudo $username
-									sudo bash -c "echo alias myls=\'ls -lisa /home/$username\' >> /home/$username/.bash_aliases"
-								elif [[ $(grep "^$group:" /etc/group) ]];
+                                fi
+
+								if [[ $(grep "^$group:" /etc/group) ]];
 								then # add to group
-									echo Found $group
+									#echo Found $group
 									sudo usermod -a -G $group $username
 								else # create then add to group
-									echo Did not find $group, creating
+									#echo Did not find $group, creating
 									sudo groupadd $group
 									sudo usermod -a -G $group $username
 								fi
+
+                                # log success of group addition
+                                if [ $? -eq 0 ];
+                                then
+                                    addedGroups="${addedGroups} ${group}"
+                                else
+                                    addedGroups="${addedGroups} !${group}"
+                                fi
+
 							done
 							local IFS=';' # return for base loop IFS
+
+                            # determine alias
+                            if [ $isSudo -eq 1 ];
+                            then
+                                sudo bash -c "echo alias myls=\'ls -lisa /home/$username\' >> /home/$username/.bash_aliases"
+                                if [ $? -eq 0 ];
+                                then
+                                    PadRight 10 'success'
+                                else
+                                    PadRight 10 'failed'
+                                fi
+                            else
+                                PadRight 10
+                            fi
+
+                            # display groups
+                            PadRight 30 $addedGroups
 
                             # does user require access to shared folder
 							if [ $folder ];
 							then # shared folder has been specified
-								echo Has shared folder access
+								#echo Has shared folder access
 								local access="${folder:1}Access"
 
 								if [ ! -d $folder ];
 								then # create shared folder
-									echo !exists
+									#echo !exists
                                     # create shared folder
 									sudo mkdir $folder
                                     sudo chmod 770 $folder
@@ -160,34 +222,51 @@ function ReadCSV {
                                     sudo chown root:$access $folder
                                 fi
 
-                                # grant access and provided link
+                                # grant access
                                 sudo usermod -a -G $access $username
+                                if [ $? -eq 0 ];
+                                then
+                                    PadRight 30 "Access to $folder"
+                                else
+                                    PadRight 30 "Access Failed"
+                                fi
+
+                                # provide link
                                 sudo ln -s /$folder /home/$username/shared
+                                if [ $? -eq 0 ];
+                                then
+                                    PadRight 10 "Linked"
+                                else
+                                    PadRight 10 "Failed"
+                                fi
 							fi
 						elif [ $useraddCode -eq 9 ];
 						then # user already registered with $username
-							echo ERR: User Creation Failed! A user is already registered with a username of $username
+                            echo ; echo
+							printf "\tERR: User Creation Failed! A user is already registered with a username of $username\n"
 						else # somthing bad happened, provide the err code
-							echo ERR: User creation failed!
-							echo TRACE: command exited with code $useraddCode
+							printf "\tERR: User creation failed!\n"
+							printf "\tTRACE: command exited with code $useraddCode\n"
 						fi
-						echo ; echo
-
+                        echo
 					else # log err then continue
+                        PadRight 10 'fail'
 						echo ERR: failed to create password from dob!
 						echo TRACE: 	Check ln$linenumber.
 						echo SKIPPING; echo
 						continue;
 					fi
 				else # log err then continue
+                    PadRight 20 'fail'
 					echo ERR: failed to create username!
 					echo TRACE: 	Check ln$linenumber.
 					echo SKIPPING ; echo
 					continue
 				fi
 			fi
-			echo
 		done < $file
+
+        Repeat 140 "=" ; echo ; echo
 
 		# ask if the file should be deleted
 		Prompt "Parse Complete... do you want to delete the file?" && rm $file
@@ -301,5 +380,6 @@ function Main() {
 	exit 0
 }
 
+clear
 Main $1 $2
 
