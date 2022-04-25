@@ -91,7 +91,7 @@ function ReadCSV {
 		echo 'File conforms to schema -> parsing.'
 
 		# dev - log users created from this script
-		rm createdusers
+		rm createdusers 2> /dev/null
 
         Authenticate
 		if [ $? -ne 0 ];
@@ -100,176 +100,190 @@ function ReadCSV {
             return 1;
         fi
 
-        # print column headings
-        echo
-        PadRight 20 'USERNAME'
-        PadRight 10 'PASSWORD'
-        PadRight 20 'HOME DIRECTORY'
-        PadRight 10 'ALIAS'
-        PadRight 30 ' GROUPS'
-        PadRight 30 'SHARED DIRECTORY'
-        PadRight 20 'DIRECTORY LINK'
-        echo
-        Repeat 140 "=" ; echo
+        local userCount=$(wc -l < $file)
+        echo ; echo "Found $userCount users."
+        Prompt 'Do you want to create these users?'
 
-		while read email dob groups folder
-		do
-			((++linenumber))
-			if [[ $linenumber -ne 1 ]];
-			then # parse line
-				# create username from email
-				local username=$(CreateUsername $email)
-				if [[ $username ]];
-				then # proceed with user creation...
-					#echo Create username success!
-					#echo Created:	$username
+        if [ $? -eq 0 ];
+        then # proceed to create users
+            echo ; echo Creating $userCount users:
+            # print column headings
+            echo
+            PadRight 20 'USERNAME'
+            PadRight 10 'PASSWORD'
+            PadRight 10 'USER'
+            PadRight 20 'HOME DIRECTORY'
+            PadRight 10 'ALIAS'
+            PadRight 30 ' GROUPS'
+            PadRight 30 'SHARED DIRECTORY'
+            PadRight 20 'DIRECTORY LINK'
+            echo
+            Repeat 150 "=" ; echo
 
-                    PadRight 20 $username
+            while read email dob groups folder
+            do
+                ((++linenumber))
+                if [[ $linenumber -ne 1 ]];
+                then # parse line
+                    # create username from email
+                    local username=$(CreateUsername $email)
+                    if [[ $username ]];
+                    then # proceed with user creation...
+                        #echo Create username success!
+                        #echo Created:	$username
 
-				 	local password=$(CreatePassword $dob)
-					if [[ $password ]];
-					then # proceed with user creation
-						#echo Create password success!
-						#echo Created:	$password
+                        PadRight 20 $username
 
-                        PadRight 10 "success"
+                        local password=$(CreatePassword $dob)
+                        if [[ $password ]];
+                        then # proceed with user creation
+                            #echo Create password success!
+                            #echo Created:	$password
 
-						# encrypt password
-						local encrypted=$(openssl passwd -crypt $password)
+                            PadRight 10 "success"
 
-						# create user
-						sudo useradd -md "/home/$username" -s /bin/bash -p $encrypted $username 2>/dev/null
-						local useraddCode=$?
-						echo $username >> createdusers # log created user
+                            # encrypt password
+                            local encrypted=$(openssl passwd -crypt $password)
 
-						if [ $useraddCode -eq 0 ];
-						then # everything worked!
-							#echo User creation successful
+                            # create user
+                            sudo useradd -md "/home/$username" -s /bin/bash -p $encrypted $username 2>/dev/null
+                            local useraddCode=$?
+                            echo $username >> createdusers # log created user
 
-                            PadRight 20 "/home/$username"
+                            if [ $useraddCode -eq 0 ];
+                            then # everything worked!
+                                #echo User creation successful
 
-                            local addedGroups=""
-                            local isSudo=0;
+                                PadRight 10 'created'
+                                PadRight 20 "/home/$username"
 
-							local IFS=',' # reset IFS
-							for group in ${groups//, /}
-							do # loop groups
-								if [ $group == 'sudo' ];
-								then # add to sudo, and create alias
-									#echo 'is sudo'
-                                    isSudo=1;
-									sudo usermod -a -G sudo $username
-                                fi
+                                local addedGroups=""
+                                local isSudo=0;
 
-								if [[ $(grep "^$group:" /etc/group) ]];
-								then # add to group
-									#echo Found $group
-									sudo usermod -a -G $group $username
-								else # create then add to group
-									#echo Did not find $group, creating
-									sudo groupadd $group
-									sudo usermod -a -G $group $username
-								fi
-
-                                # log success of group addition
-                                if [ $? -eq 0 ];
-                                then
-                                    addedGroups="${addedGroups} ${group}"
-                                else
-                                    addedGroups="${addedGroups} !${group}"
-                                fi
-
-							done
-							local IFS=';' # return for base loop IFS
-
-                            # determine alias
-                            if [ $isSudo -eq 1 ];
-                            then
-                                sudo bash -c "echo alias myls=\'ls -lisa /home/$username\' >> /home/$username/.bash_aliases"
-                                if [ $? -eq 0 ];
-                                then
-                                    PadRight 10 'success'
-                                else
-                                    PadRight 10 'failed'
-                                fi
-                            else
-                                PadRight 10
-                            fi
-
-                            # display groups
-                            PadRight 30 $addedGroups
-
-                            # does user require access to shared folder
-							if [ $folder ];
-							then # shared folder has been specified
-								#echo Has shared folder access
-								local access="${folder:1}Access"
-
-								if [ ! -d $folder ];
-								then # create shared folder
-									#echo !exists
-                                    # create shared folder
-									sudo mkdir $folder
-                                    sudo chmod 770 $folder
-
-                                    # does access already exist
-                                    if [[ ! $(grep "^$access:" /etc/group) ]];
-                                    then # create
-                                        sudo groupadd $access
+                                local IFS=',' # reset IFS
+                                for group in ${groups//, /}
+                                do # loop groups
+                                    if [ $group == 'sudo' ];
+                                    then # add to sudo, and create alias
+                                        #echo 'is sudo'
+                                        isSudo=1;
+                                        sudo usermod -a -G sudo $username
                                     fi
 
-                                    # assign ownership
-                                    sudo chown root:$access $folder
-                                fi
+                                    if [[ $(grep "^$group:" /etc/group) ]];
+                                    then # add to group
+                                        #echo Found $group
+                                        sudo usermod -a -G $group $username
+                                    else # create then add to group
+                                        #echo Did not find $group, creating
+                                        sudo groupadd $group
+                                        sudo usermod -a -G $group $username
+                                    fi
 
-                                # grant access
-                                sudo usermod -a -G $access $username
-                                if [ $? -eq 0 ];
+                                    # log success of group addition
+                                    if [ $? -eq 0 ];
+                                    then
+                                        addedGroups="${addedGroups} ${group}"
+                                    else
+                                        addedGroups="${addedGroups} !${group}!"
+                                    fi
+
+                                done
+                                local IFS=';' # return for base loop IFS
+
+                                # determine alias
+                                if [ $isSudo -eq 1 ];
                                 then
-                                    PadRight 30 "Access to $folder"
+                                    sudo bash -c "echo alias myls=\'ls -lisa /home/$username\' >> /home/$username/.bash_aliases"
+                                    if [ $? -eq 0 ];
+                                    then
+                                        PadRight 10 'success'
+                                    else
+                                        PadRight 10 'failed'
+                                    fi
                                 else
-                                    PadRight 30 "Access Failed"
+                                    PadRight 10
                                 fi
 
-                                # provide link
-                                sudo ln -s /$folder /home/$username/shared
-                                if [ $? -eq 0 ];
-                                then
-                                    PadRight 10 "Linked"
-                                else
-                                    PadRight 10 "Failed"
-                                fi
-							fi
-						elif [ $useraddCode -eq 9 ];
-						then # user already registered with $username
-                            echo ; echo
-							printf "\tERR: User Creation Failed! A user is already registered with a username of $username\n"
-						else # somthing bad happened, provide the err code
-							printf "\tERR: User creation failed!\n"
-							printf "\tTRACE: command exited with code $useraddCode\n"
-						fi
-                        echo
-					else # log err then continue
-                        PadRight 10 'fail'
-						echo ERR: failed to create password from dob!
-						echo TRACE: 	Check ln$linenumber.
-						echo SKIPPING; echo
-						continue;
-					fi
-				else # log err then continue
-                    PadRight 20 'fail'
-					echo ERR: failed to create username!
-					echo TRACE: 	Check ln$linenumber.
-					echo SKIPPING ; echo
-					continue
-				fi
-			fi
-		done < $file
+                                # display groups
+                                PadRight 30 $addedGroups
 
-        Repeat 140 "=" ; echo ; echo
+                                # does user require access to shared folder
+                                if [ $folder ];
+                                then # shared folder has been specified
+                                    #echo Has shared folder access
+                                    local access="${folder:1}Access"
+
+                                    if [ ! -d $folder ];
+                                    then # create shared folder
+                                        #echo !exists
+                                        # create shared folder
+                                        sudo mkdir $folder
+                                        sudo chmod 770 $folder
+
+                                        # does access already exist
+                                        if [[ ! $(grep "^$access:" /etc/group) ]];
+                                        then # create
+                                            sudo groupadd $access
+                                        fi
+
+                                        # assign ownership
+                                        sudo chown root:$access $folder
+                                    fi
+
+                                    # grant access
+                                    sudo usermod -a -G $access $username
+                                    if [ $? -eq 0 ];
+                                    then
+                                        PadRight 30 "Access to $folder"
+                                    else
+                                        PadRight 30 "Access Failed"
+                                    fi
+
+                                    # provide link
+                                    sudo ln -s /$folder /home/$username/shared
+                                    if [ $? -eq 0 ];
+                                    then
+                                        PadRight 10 "Linked"
+                                    else
+                                        PadRight 10 "Failed"
+                                    fi
+                                fi
+                            elif [ $useraddCode -eq 9 ];
+                            then # user already registered with $username
+                                PadRight 10 'failed'
+                                #echo ; echo
+                                #printf "\tERR: User Creation Failed! A user is already registered with a username of $username\n"
+                            else # somthing bad happened, provide the err code
+                                PadRight 10 'failed'
+                                #printf "\tERR: User creation failed!\n"
+                                #printf "\tTRACE: command exited with code $useraddCode\n"
+                            fi
+                            echo
+                        else # log err then continue
+                            PadRight 10 'failed'
+                            #echo ERR: failed to create password from dob!
+                            #echo TRACE: 	Check ln$linenumber.
+                            #echo SKIPPING; echo
+                            continue;
+                        fi
+                    else # log err then continue
+                        PadRight 20 'failed'
+                        #echo ERR: failed to create username!
+                        #echo TRACE: 	Check ln$linenumber.
+                        #echo SKIPPING ; echo
+                        continue
+                    fi
+                fi
+            done < $file
+            Repeat 150 "=" ; echo
+        else
+            echo ; echo Aborting user creation
+        fi
 
 		# ask if the file should be deleted
-		Prompt "Parse Complete... do you want to delete the file?" && rm $file
+        echo ; echo "Parse complete"
+		Prompt 'do you want to delete the file?' && rm $file
 	else # the file is either !csv or data is malformed
 		echo ERR: File did not match required schema!
 		echo "FOUND:	$header"
@@ -380,6 +394,5 @@ function Main() {
 	exit 0
 }
 
-clear
 Main $1 $2
 
