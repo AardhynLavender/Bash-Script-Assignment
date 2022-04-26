@@ -181,6 +181,15 @@ function ReadCSV {
                                 PadRight 10 'created'
                                 PadRight 20 "/home/$username"
 
+                                # force user to change password
+                                sudo chage -d 0 $username 2> /dev/null
+                                if [ $? -eq 0 ];
+                                then
+                                    Log "SUCCESS" "$username must change their password on next login"
+                                else
+                                    Log "ERROR" "failed to set expiry on password for $username" "ln185"
+                                fi
+
                                 local addedGroups=""
                                 local isSudo=0;
 
@@ -196,7 +205,7 @@ function ReadCSV {
                                         then
                                             Log "SUCCESS" "Added $username to sudoers"
                                         else
-                                            Log "ERROR" "Failed to add $username to sudos" "ln194"
+                                            Log "ERROR" "Failed to add $username to sudos" "ln203"
                                         fi
                                     fi
 
@@ -216,7 +225,7 @@ function ReadCSV {
                                         Log "SUCCESS" "Added $username to $group"
                                     else
                                         addedGroups="${addedGroups} !${group}!"
-                                        Log "ERROR" "Failed to add $username to $group" "ln210"
+                                        Log "ERROR" "Failed to add $username to $group" "ln219"
                                     fi
                                 done
                                 local IFS=';' # return for base loop IFS
@@ -233,7 +242,7 @@ function ReadCSV {
                                         Log "SUCCESS" "Added myls alias to $username"
                                     else
                                         PadRight 10 'failed'
-                                        Log "ERROR" "Could not create myls alias to $username" "ln229"
+                                        Log "ERROR" "Could not create myls alias to $username" "ln238"
                                     fi
                                 else
                                     Log "UPDATE" "Skipped adding alias to $username"
@@ -273,7 +282,7 @@ function ReadCSV {
                                         then
                                             Log "SUCCESS" "Assigned $access to $folder"
                                         else
-                                            Log "ERROR" "Could not assign $access to $folder" "ln271"
+                                            Log "ERROR" "Could not assign $access to $folder" "ln280"
                                         fi
                                     fi
 
@@ -285,7 +294,7 @@ function ReadCSV {
                                         Log "SUCCESS" "$username has access to $folder"
                                     else
                                         PadRight 30 "Access Failed"
-                                        Log "ERROR" "Failed to give $username access to $folder" "ln281"
+                                        Log "ERROR" "Failed to give $username access to $folder" "ln290"
                                     fi
 
                                     # provide link
@@ -296,7 +305,7 @@ function ReadCSV {
                                         Log "SUCCESS" "Provided $username a link to $folder"
                                     else
                                         PadRight 10 "Failed"
-                                        Log "ERROR" "Could not provide $username a link to $folder" "ln292"
+                                        Log "ERROR" "Could not provide $username a link to $folder" "ln301"
                                     fi
                                 fi
                             elif [ $useraddCode -eq 9 ];
