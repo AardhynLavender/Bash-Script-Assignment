@@ -7,6 +7,8 @@
 #	AARDHYN LAVENDER
 #
 
+input='' # global variable to store user input in
+
 # Logs details of the current script execution to a file
 function Log() {
     if [ ! -d ./logs ];
@@ -40,6 +42,7 @@ function Repeat() {
     do
         printf $2
     done
+    echo
 }
 
 # prints a string with right padding to fill allocated space
@@ -62,20 +65,32 @@ function Prompt() {
 	do
 		# prompt user
 		printf '[yes/no]: '
-		read input
+		read promptInput
 
 		# loop until detect valid input
-		if [[ $input == 'yes' ]];
+		if [[ $promptInput == 'yes' ]];
 		then
             Log "SUCCESS" "Recived 0 ( yes ) for prompt '$1'"
 			return 0 # 0 for no error
-		elif [[ $input == 'no' ]];
+		elif [[ $promptInput == 'no' ]];
 		then
-			return 1
             Log "SUCCESS" "Recived 1 ( no ) for prompt '$1'"
+			return 1
 		fi
         Log "ERROR" "User input parse failed -> repeating prompt" "malformed input" "'yes' or 'no'"
 	done
+}
+
+function Input() {
+    echo $1:
+    input='' # void the global input
+    while [ ! $input ];
+    do
+        printf ' > '
+        read input
+    done
+    Log "SUCCESS" "Recived input of '$input' from question '$1'"
+    return 0
 }
 
 function Validate() {
@@ -93,14 +108,18 @@ function Compress() {
     then
         echo ; echo "Input valid -> Compressing"
         Log "SUCCESS" "provided directory is valid -> attempting to compress"
+
         local directory=$(basename $path)
-        tar -czf $directory.tar.gz $path 2> /dev/null
+        local compressed=$directory.tar.gz
+
+        tar -czf $compressed $path 2> /dev/null
         local err=$?
         if [ $err -eq 0 ];
         then
-            echo "Compression Successfull -> Created $directory.tar.gz"
-            Log "SUCCESS" "successfully compressed $directory"
-            return 0
+            echo Compression Successfull -\> Created $compressed
+            Log "SUCCESS" "successfully compressed $directory to $compressed"
+            Transfer $compressed
+            return $?
         else
             echo "Compression failed!"
             Log "ERROR" "Compression failed" "tar command exited with code $err" "expect code 0"
@@ -113,10 +132,84 @@ function Compress() {
     fi
 }
 
+function Connectivity() {
+    local ip=$1
+    local stdpkts=3
+    printf "\n\tEstablishing a connection with the remote server... "
+    Log "UPDATE" "Validating connectivity of ip '$ip'"
+    ping -c $stdpkts $ip &> /dev/null
+    local err=$?
+    if [ $err -eq 0 ];
+    then
+        printf "Success!\n"
+        Log "SUCCESS" "Connection established"
+        return 0;
+    else
+        printf "Failed!\n\n"
+        Log "ERROR" "Failed to establish a connection" "'$ip' ping returned an exit code of $err" "Valid ip address"
+        return 1;
+    fi
+}
+
+function Transfer() {
+    echo; Prompt "Do you wish to backup the file?"
+    if [ $? -ne 0 ];
+    then
+        return 0
+    fi
+
+    local file=$1
+
+    echo ; Repeat 70 '-'
+    echo " Preparing to backup '$1' to remote server"
+    Repeat 70 '-' ; echo
+    Input "Username"
+    echo ; local user=$input
+
+    # ensure valid ip
+    local valid=0
+    while [ $valid -eq 0 ]
+    do
+        Input "Ip address (ipv4)"
+        local ip=$input
+        Connectivity $ip && valid=1
+    done
+
+    # ensure valid port number
+    local validPort=0;
+    while [ $validPort -eq 0 ]
+    do
+        echo ; Input "Port number"
+        port=$input
+        if [[ $port -lt 1 || $port -gt 65535 ]];
+        then
+            printf "\n\tInvalid Port!\n"
+        else
+            validPort=1
+        fi
+    done
+
+    echo ; Input "Destination Filepath"
+    local dstfp=$input
+    echo ; Repeat 70 '-' ; echo
+
+    printf "\tInitiating secure copy to server"
+    echo ; echo
+
+    scp -P $port $file $user@$ip:"$dstfp" &> /dev/null
+    local err=$?
+    if [ $err -eq 0 ];
+    then
+        echo Transfer Successfull!
+    else
+        echo Transfer Failed!
+    fi
+    echo ; Repeat 70 '-' ; echo
+}
+
 function AskForInput() {
     Log "UPDATE" "No paramaters provided -> Asking for input"
-    local file
-    echo Please provide a directory to compress:
+    echo Please provide a directory to backup:
     while [ ! $path ];
     do
         printf ' file > '
@@ -126,7 +219,7 @@ function AskForInput() {
     return $?
 }
 
-function main() {
+function Main() {
     local err
     timestamp=$(date +%Y-%m-%d@%H:%M:%S) # set timestamp for log file
     Log "UPDATE" "Script executed at $timestamp"
@@ -147,6 +240,6 @@ function main() {
     return $err
 }
 
-main $1 $2
+Main $1 $2
 exit $?
 
