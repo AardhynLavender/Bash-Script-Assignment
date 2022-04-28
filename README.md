@@ -1,8 +1,9 @@
-# OSC-Bash-Script-Assignment
-## ID616 - Operating Systems Concepts - Bash Script Assignment
+# ID616 OSC - Bash Script Assignment
+## Linux User Enviroment Configuration and Backup service
+
 |Author|Code|Last Update|
 |:---|:---|---:|
-|Aardhyn Lavender|laveat1|27/04/2022|
+|Aardhyn Lavender|laveat1|28/04/2022|
 
 ```bash
 git clone https://github.com/AardhynLavender/OSC-Bash-Script-Assignment/
