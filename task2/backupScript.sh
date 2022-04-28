@@ -2,7 +2,7 @@
 
 #
 #	OSC BASH SCRIPT ASSIGNMENT 2022 S1
-#	TASK ONE
+#	TASK TWO
 #
 #	AARDHYN LAVENDER
 #
@@ -87,14 +87,29 @@ function Validate() {
 }
 
 function Compress() {
-    Validate $1
+    local path=$1
+    Validate $path
     if [ $? -eq 0 ];
     then
-        # compressing file...
-        echo compressing...
+        echo ; echo "Input valid -> Compressing"
+        Log "SUCCESS" "provided directory is valid -> attempting to compress"
+        local directory=$(basename $path)
+        tar -czf $directory.tar.gz $path 2> /dev/null
+        local err=$?
+        if [ $err -eq 0 ];
+        then
+            echo "Compression Successfull -> Created $directory.tar.gz"
+            Log "SUCCESS" "successfully compressed $directory"
+            return 0
+        else
+            echo "Compression failed!"
+            Log "ERROR" "Compression failed" "tar command exited with code $err" "expect code 0"
+            return 1
+        fi
     else
         echo "Error: Could not process directory"
         Log "ERROR" "Could not process '$directory'" "check path" "valid directory"
+        return 1
     fi
 }
 
@@ -108,25 +123,30 @@ function AskForInput() {
         read path
     done
     Compress $path
+    return $?
 }
 
-
 function main() {
+    local err
     timestamp=$(date +%Y-%m-%d@%H:%M:%S) # set timestamp for log file
     Log "UPDATE" "Script executed at $timestamp"
     if [ $# -eq 0 ];
     then
         AskForInput
+        err=$?
     elif [ $# -eq 1 ];
     then
         Compress $1
+        err=$?
     else
         Log "ERROR" "too many arguments" "too many script invocation arguments" "./backupScript.sh <filepath>"
         echo "ERROR: Too many arguments"
+        err=1
     fi
     Log "UPDATE" "Script terminated at $(date +%Y-%m-%d@%H:%M:%S)"
+    return $err
 }
 
 main $1 $2
-exit 0
+exit $?
 
