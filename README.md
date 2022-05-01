@@ -59,11 +59,27 @@ Alternatively, pass the `-r` flag and specify a url
 
 ### Summary
 
+The purpose of the program is to compress a given directory and copy it securely to a specified remote server. Like `task one` the script displays the compression and transfer process by means of standard output and detailed log file.
+
 ### Pre-requisites
+
+- A directory to compress
+- A remote server including:
+  - Access to a user with write permissons to at least one directory ( most likely you can use the `home directory` of the provided user )
+  - A port that permits `ssh`--usually 22--or some special `shh tunneling` setup.
 
 ### Execution
 
 *From project root*
 
 ```bash
+./task2/backupScript.sh
+```
+
+*Run without arguments for guided execution*
+
+With arguments, specify a local file as the first--and only--argument
+
+```bash
+./task2/backupScript.sh ./testDirectory
 ```
