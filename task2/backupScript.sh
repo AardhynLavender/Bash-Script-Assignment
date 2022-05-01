@@ -196,7 +196,7 @@ function Transfer() {
     printf "\tInitiating secure copy to server"
     echo ; echo
 
-    scp -P $port $file $user@$ip:"$dstfp" &> /dev/null
+    scp -r -P $port $file $user@$ip:"$dstfp" &> /dev/null
     local err=$?
     if [ $err -eq 0 ];
     then

@@ -9,16 +9,25 @@
 
 # Logs details of the current script execution to a file
 function Log() {
+    if [ ! -d ./logs ];
+    then
+        mkdir ./logs
+        Log "UPDATE" "No log directory was present -> Creating" # recursive function...
+    fi
+
     local out="logs/$timestamp.log"
     printf "[ $1 ]\t$2\n" >> $out
+
     if [ -n "$3" ];
     then
         printf "  TRACE:\t$3\n" >> $out
     fi
+
     if [ -n "$4" ];
     then
         printf "  EXPECT:\t$4\n" >> $out
     fi
+
     echo >> $out
 
     # create a copy of the latest log
@@ -188,6 +197,7 @@ function ReadCSV {
                                     Log "SUCCESS" "$username must change their password on next login"
                                 else
                                     Log "ERROR" "failed to set expiry on password for $username" "ln185"
+                                    return 1
                                 fi
 
                                 local addedGroups=""
@@ -339,6 +349,8 @@ function ReadCSV {
 		# ask if the file should be deleted
         echo ; echo "Parse complete"
 		Prompt 'Do you want to delete the file?' && rm $file
+
+        return 0
 	else # the file is either !csv or data is malformed
         Log "ERROR" "File did not match required schema" "found $header" "schema $schema"
 		echo ERROR: File did not match required schema!
@@ -348,7 +360,7 @@ function ReadCSV {
 		# the user may wish to keep the invalid file...
 		Prompt "Do you want to delete the file?" && rm $file
 	fi
-
+    return 1
 }
 
 # Attempt to fetch remote data
@@ -368,11 +380,13 @@ function ReadRemote() {
             Log "SUCCESS" "File was retrived from $url -> Attempting to parse"
 			echo success! Attempting to parse
 			ReadCSV fetchedData
+            return $?
 		else
             Log "ERROR" "No file was returned from $url" "validate $url using 'wget' ( man wget )"
 			echo ERROR: No file was returned!
 		fi
 	fi
+    return 1
 }
 
 # Validate url format
@@ -390,6 +404,7 @@ function ValidateURL() {
             Log "SUCCESS" "Valid url was passed"
             Log "UPDATE" "Attempting to read remote"
 			ReadRemote $url
+            return $?
 		else
             Log "ERROR" "Url was malformed" "malformed user input" "http://* || https://*"
 			echo ERROR: url was malformed!
@@ -401,6 +416,7 @@ function ValidateURL() {
 		echo ERROR: no url was specified!
 		echo "EXPECT:	<command> -r <url>"
 	fi
+    return 1
 }
 
 # Valiate input points to a valid file
@@ -409,6 +425,7 @@ function ValidateFilepath() {
 	then # user has specifed a local file to read
         Log "UPDATE" "File is valid -> attempting to parse"
 		ReadCSV $1
+        return $?
 	elif [[ -d $1 ]];
 	then # user has specified a directory
         Log "ERROR" "Input must point to a file!" "invalid user input" "<command> <-f filepath>"
@@ -419,6 +436,7 @@ function ValidateFilepath() {
 		echo ERROR: a file must be specified!
 		echo "EXPECT:	<command> <filepath>"
 	fi
+    return 1
 }
 
 # Determine function based on paramaters
@@ -431,6 +449,7 @@ function DetermineInput() {
         Log "UPDATE" "Specifed local -> validating"
 		ValidateFilepath $1
 	fi
+    return $?
 }
 
 # Prompts the user for script paramaters
@@ -452,7 +471,7 @@ function AskForInput() {
         Log "UPDATE" "Recived input -> validating"
 		ValidateFilepath $filepath
 	fi
-
+    return $?
 }
 
 # application entry point
@@ -467,8 +486,9 @@ function Main() {
         Log 'UPDATE' 'Script arguments provided -> validating arguments'
 		DetermineInput $1 $2
 	fi
+    local err=$?
     Log "UPDATE" "Script terminated at $(date +%Y-%m-%d@%H:%M:%S)"
-	exit 0
+	exit $err
 }
 
 Main $1 $2
