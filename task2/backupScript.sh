@@ -8,6 +8,9 @@
 #
 
 input='' # global variable to store user input in
+# I use this because if a functions return value is piped
+# echo, printf, and read stop using stdout and stdin.
+# this prevents me from reading input.
 
 # Logs details of the current script execution to a file
 function Log() {
@@ -81,9 +84,10 @@ function Prompt() {
 	done
 }
 
+# requests input from the user
 function Input() {
     echo $1:
-    input='' # void the global input
+    input='' # void the global input variable
     while [ ! $input ];
     do
         printf ' > '
@@ -93,6 +97,7 @@ function Input() {
     return 0
 }
 
+ # Validates a directory
 function Validate() {
     if [[ -d $1 ]];
     then
@@ -101,6 +106,7 @@ function Validate() {
     return 1
 }
 
+# compresses the provided file for transfer
 function Compress() {
     local path=$1
     Validate $path
@@ -132,6 +138,7 @@ function Compress() {
     fi
 }
 
+# validates connectivity with a remote device
 function Connectivity() {
     local ip=$1
     local stdpkts=3
@@ -151,6 +158,7 @@ function Connectivity() {
     fi
 }
 
+# transfers a file to a remote server
 function Transfer() {
     echo; Prompt "Do you wish to backup the file?"
     if [ $? -ne 0 ];
@@ -207,6 +215,7 @@ function Transfer() {
     echo ; Repeat 70 '-' ; echo
 }
 
+# asks the user for the script input
 function AskForInput() {
     Log "UPDATE" "No paramaters provided -> Asking for input"
     echo Please provide a directory to backup:
@@ -219,6 +228,7 @@ function AskForInput() {
     return $?
 }
 
+# script entry point
 function Main() {
     local err
     timestamp=$(date +%Y-%m-%d@%H:%M:%S) # set timestamp for log file
