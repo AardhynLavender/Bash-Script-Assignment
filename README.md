@@ -3,7 +3,7 @@
 
 |Author|Code|Last Update|
 |:---|:---|---:|
-|Aardhyn Lavender|laveat1|28/04/2022|
+|Aardhyn Lavender|laveat1|03/05/2022|
 
 ```bash
 git clone https://github.com/AardhynLavender/OSC-Bash-Script-Assignment/
@@ -83,3 +83,31 @@ With arguments, specify a local file as the first--and only--argument
 ```bash
 ./task2/backupScript.sh ./testDirectory
 ```
+
+## Assignment Submission
+
+Self assesment is provided in project root.
+
+### Groups
+
+```bash
+cat /etc/groups
+```
+
+![image](https://user-images.githubusercontent.com/83677410/166403900-3117f4c0-f7a6-4ac4-b503-a7d0d387e6b0.png)
+
+staff was hiding further up...
+
+![image](https://user-images.githubusercontent.com/83677410/166403923-9b9c3d7b-207c-46f2-96f0-e428c47e6f10.png)
+
+### Passwords
+
+```bash
+cat /etc/passwd/
+```
+
+![image](https://user-images.githubusercontent.com/83677410/166403979-6da93854-2d86-4feb-b8fc-831bc0407083.png)
+
+### Secure Copy Execution Output
+
+![image](https://user-images.githubusercontent.com/83677410/166404517-5a0d9f85-efcc-47dd-92c7-cd15aca402df.png)
