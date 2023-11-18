@@ -1,5 +1,5 @@
 # ID616 OSC - Bash Script Assignment
-## Linux User Enviroment Configuration and Backup service
+## Linux User Enviroment Configuration and Backup Service
 
 |Author|Code|Last Update|
 |:---|:---|---:|
@@ -7,7 +7,7 @@
 
 ```bash
 git clone https://github.com/AardhynLavender/OSC-Bash-Script-Assignment/
-cd OSC-Bash-Scipt-Assignment
+cd Bash-Script-Assignment
 ```
 
 ## Task One - Creating a User Environment
